@@ -220,6 +220,12 @@
             .education-filter-container.education {
                 margin-bottom: 25px;
             }
+            
+            @media (max-width: 812px) {
+                label[for^="education_"] {
+                    padding-bottom: 7px;
+                }
+            }
         `;
 
     // CSS-Stile einfügen
