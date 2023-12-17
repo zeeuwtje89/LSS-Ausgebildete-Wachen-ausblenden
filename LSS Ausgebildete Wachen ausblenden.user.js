@@ -17,19 +17,22 @@
         // Einfügen eines Eingabefelds, Speichern-Buttons und Löschen-Buttons neben jedem Radio-Element
         var radioElements = document.querySelectorAll('.radio input[type="radio"]');
         radioElements.forEach(function (radio) {
-            var inputField = document.createElement('input');
-            inputField.type = 'number';
-            inputField.className = 'educationInput';
-            inputField.placeholder = 'Min Personal';
-
             // Direktes Lesen des education_key-Attributs vom Radiobutton
             var educationKey = radio.getAttribute('education_key');
 
             if (educationKey) {
-                radio.parentNode.appendChild(inputField);
+                var container = document.createElement('div');
+                container.classList.add('education-filter-container');
+
+                var inputField = document.createElement('input');
+                inputField.type = 'number';
+                inputField.className = 'educationInput';
+                inputField.placeholder = 'Min Personal';
+                container.append(inputField);
 
                 // Einfügen der Speichern-Button für jedes Radio-Element
                 var saveButton = document.createElement('button');
+                saveButton.type = 'button';
                 saveButton.textContent = 'Speichern';
                 saveButton.id = 'saveButton_' + educationKey;
                 saveButton.className = 'btn btn-xs btn-success';
@@ -37,10 +40,11 @@
                     event.preventDefault(); // Verhindert das Standardverhalten des Buttons
                     saveToLocalStorage(educationKey, inputField.value.trim());
                 });
-                radio.parentNode.appendChild(saveButton);
+                container.append(saveButton);
 
                 // Einfügen der Löschen-Button für jedes Radio-Element
                 var deleteButton = document.createElement('button');
+                deleteButton.type = 'button';
                 deleteButton.textContent = 'Löschen';
                 deleteButton.id = 'deleteButton_' + educationKey;
                 deleteButton.className = 'btn btn-xs btn-danger';
@@ -48,13 +52,13 @@
                     event.preventDefault(); // Verhindert das Standardverhalten des Buttons
                     deleteFromLocalStorage(educationKey);
                 });
-                radio.parentNode.appendChild(deleteButton);
+                container.append(deleteButton);
+                radio.parentNode.parentNode.appendChild(container);
 
                 // Eventlistener hinzufügen, um den StoredValue beim Ändern des Radiobuttons zu aktualisieren
                 radio.addEventListener('change', function () {
                     // Setzen des StoredValue für den aktiven Radiobutton beim Ändern
                     setStoredValueForEducationKey(educationKey);
-                    console.log('Aktives Radio: ' + educationKey);
                 });
 
                 // Überprüfen, ob der Radiobutton ausgewählt ist und den zugehörigen StoredValue setzen
@@ -149,47 +153,18 @@
 
         // CSS-Stile für die Anordnung der Eingabefelder und Buttons
         var styles = `
-            .radio {
-                position: relative;
-                margin-bottom: 10px;
-            }
-
-            .label-container {
-                position: absolute;
-                left: 0;
-                top: 50%;
-                transform: translateY(-50%);
-                min-width: 200px;
-            }
-
-            .educationInput {
-                position: absolute;
-                left: 20%;
-                top: 50%;
-                transform: translate(-50%, -50%);
-                margin-right: 5px;
-                width: 100px;
-            }
-
-            .educationInput,
-            button {
+            label[for^="education_"],
+            .education-filter-container {
                 display: inline-block;
             }
-
-            button {
-                position: absolute;
-                top: 50%;
-                width: auto;
+            
+            label[for^="education_"] {
+                min-width: 450px;
             }
-
-            .btn.btn-xs.btn-success {
-                left: calc(20% + 110px);
-                transform: translateY(-50%);
-            }
-
-            .btn.btn-xs.btn-danger {
-                left: calc(20% + 210px);
-                transform: translateY(-50%);
+            
+            .education-filter-container button:first-of-type {
+                margin-right: 5px;
+                margin-left: 25px;
             }
         `;
 
