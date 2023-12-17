@@ -4,7 +4,7 @@
 // @version      0.8
 // @description  Blende Wachen in der Schule aus, die mehr ausgebildetes Personal haben, als angegeben
 // @author       MissSobol
-// @match        https://www.leitstellenspiel.de/*
+// @match        https://www.leitstellenspiel.de/buildings/*
 // @grant        none
 // ==/UserScript==
 
