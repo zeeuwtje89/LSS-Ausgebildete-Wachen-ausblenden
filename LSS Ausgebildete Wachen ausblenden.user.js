@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LSS Ausgebildete Wachen ausblenden
 // @namespace    www.leitstellenspiel.de
-// @version      0.9
+// @version      1.0
 // @description  Blende Wachen in der Schule aus, die mehr ausgebildetes Personal haben, als angegeben
 // @author       MissSobol
 // @match        https://www.leitstellenspiel.de/buildings/*
@@ -20,6 +20,10 @@
         return;
     }
 
+    const personalSelectHeadingElements = document.querySelectorAll('#accordion > .panel.panel-default .personal-select-heading-building');
+    const personalSelectHeadingCount = personalSelectHeadingElements.length;
+    observePanels();
+
     if (schoolingElement) {
         // Einfügen eines Eingabefelds, Speichern-Buttons und Löschen-Buttons neben jedem Radio-Element
         const radioElements = document.querySelectorAll('.radio input[type="radio"]');
@@ -27,7 +31,6 @@
         for (let i = 0, n = radioElements.length; i < n; i++) {
             // Direktes Lesen des education_key-Attributs vom Radiobutton
             const educationKey = radioElements[i].getAttribute('education_key');
-
             if (!educationKey) {
                 continue;
             }
@@ -35,21 +38,10 @@
             const inputElements = createInputElements(educationKey);
             inputElements.classList.add('schooling');
             radioElements[i].parentNode.parentNode.appendChild(inputElements);
-
-            // Eventlistener hinzufügen, um den StoredValue beim Ändern des Radiobuttons zu aktualisieren
-            radioElements[i].addEventListener('change', () => {
-                // Setzen des StoredValue für den aktiven Radiobutton beim Ändern
-                setStoredValueForEducationKey(educationKey);
-            });
-
-            // Überprüfen, ob der Radiobutton ausgewählt ist und den zugehörigen StoredValue setzen
-            if (radioElements[i].checked) {
-                setStoredValueForEducationKey(educationKey);
-            }
         }
     } else if (educationForm) {
         // Prüfen ob globalEducationKey existiert
-        if (!globalEducationKey) {
+        if (typeof globalEducationKey === 'undefined') {
             return;
         }
 
@@ -59,15 +51,7 @@
         inputElements.classList.add('education');
         inputElements.insertBefore(headline, inputElements.firstChild);
         educationForm.parentNode.insertBefore(inputElements, educationForm);
-
-        setStoredValueForEducationKey(globalEducationKey);
     }
-
-    // Laden und Anzeigen der im Local Storage gespeicherten Zahlen
-    loadFromLocalStorage();
-
-    // Überprüfen der Panels in einem Intervall von 500 ms
-    setInterval(checkPanels, 500);
 
     function createInputElements(educationKey) {
         const container = document.createElement('div');
@@ -76,7 +60,13 @@
         const inputField = document.createElement('input');
         inputField.type = 'number';
         inputField.className = 'educationInput';
-        inputField.placeholder = 'Min Personal';
+        inputField.placeholder = 'Min. Personal';
+
+        const storedValue = localStorage.getItem(educationKey);
+        if (storedValue) {
+            inputField.value = storedValue;
+        }
+
         container.append(inputField);
 
         // Einfügen der Speichern-Button für jedes Radio-Element
@@ -88,6 +78,7 @@
         saveButton.addEventListener('click', (event) => {
             event.preventDefault(); // Verhindert das Standardverhalten des Buttons
             saveToLocalStorage(educationKey, inputField.value.trim());
+            checkPanels();
         });
         container.append(saveButton);
 
@@ -99,134 +90,170 @@
         deleteButton.className = 'btn btn-xs btn-danger';
         deleteButton.addEventListener('click', (event) => {
             event.preventDefault(); // Verhindert das Standardverhalten des Buttons
-            deleteFromLocalStorage(educationKey);
+            inputField.value = '';
+            localStorage.removeItem(educationKey);
+            checkPanels();
         });
         container.append(deleteButton);
 
         return container;
     }
 
-    // Funktion zum Überprüfen der Panels
-    function checkPanels() {
-        // Überprüfen aller Panel-Elemente
-        const panelElements = document.querySelectorAll('#accordion > .panel.panel-default');
-
-        if (panelElements) {
-            for (let i = 0, n = panelElements.length; i < n; i++) {
-                const labelTextEducated = panelElements[i].textContent.match(/(\d+) ausgebildete Person/);
-                const labelTextInEducation = panelElements[i].textContent.match(/(\d+) in Ausbildung/);
-
-                if (labelTextEducated || labelTextInEducation) {
-                    let numTrained = 0;
-
-                    if (labelTextEducated) {
-                        numTrained += parseInt(labelTextEducated[1]);
-                    }
-
-                    if (labelTextInEducation) {
-                        numTrained += parseInt(labelTextInEducation[1])
-                    }
-
-                    // Ausblenden des Panels, wenn die Bedingung erfüllt ist
-                    if (numTrained && isPanelHidden(panelElements[i], numTrained)) {
-                        panelElements[i].style.display = 'none';
-                    }
-                }
-            }
+    /**
+     * Observe all panels for education info changes
+     */
+    function observePanels() {
+        for (let i = 0, n = personalSelectHeadingCount; i < n; i++) {
+            observeEducationInfo(personalSelectHeadingElements[i]);
         }
     }
 
-    // Funktion zum Überprüfen, ob ein Panel ausgeblendet werden soll
-    function isPanelHidden(panel, numTrained) {
-        // Ausgewähltes Radio-Element finden
+    /**
+     * Checks a panel
+     */
+    function checkPanel(element, thresholdTrained) {
+        const educationLabels = element.querySelector('.label');
+        const panelElement = element.closest('.panel.panel-default');
+
+        if (educationLabels) {
+            const educatedCount = getTrainedAmount(element);
+            togglePanel(panelElement, educatedCount, thresholdTrained);
+        } else if (panelElement.style.display === 'none') {
+            panelElement.style.removeProperty('display');
+        }
+    }
+
+    /**
+     * Checks all panels
+     */
+    function checkPanels() {
+        const educationKey = getEducationKey();
+        const thresholdTrained = getThresholdTrained(educationKey);
+
+        for (let i = 0, n = personalSelectHeadingCount; i < n; i++) {
+            checkPanel(personalSelectHeadingElements[i], thresholdTrained);
+        }
+    }
+
+    /**
+     * Observes the education info of the provided panel for changes
+     */
+    function observeEducationInfo(element) {
+        const observer = new MutationObserver((mutations) => {
+            for (let i = 0, n = mutations.length; i < n; i++) {
+                if (mutations[i].type === 'childList') {
+                    const educationKey = getEducationKey();
+                    const thresholdTrained = getThresholdTrained(educationKey);
+                    checkPanel(element, thresholdTrained);
+                }
+            }
+        });
+
+        observer.observe(element, {
+            childList: true
+        });
+    }
+
+    /**
+     * Gets the amount of trained personal
+     */
+    function getTrainedAmount(element) {
+        const labelTextEducated = element.textContent.match(/(\d+) ausgebildete Person/);
+        const labelTextInEducation = element.textContent.match(/(\d+) in Ausbildung/);
+        let numEducated = 0;
+
+        if (labelTextEducated) {
+            numEducated += parseInt(labelTextEducated[1]);
+        }
+
+        if (labelTextInEducation) {
+            numEducated += parseInt(labelTextInEducation[1])
+        }
+
+        return numEducated;
+    }
+
+    /**
+     * Loads the amount of necessary trained personal depending on the education key
+     */
+    function getThresholdTrained(educationKey) {
+        const storedValue = localStorage.getItem(educationKey);
+
+        if (storedValue) {
+            return parseInt(storedValue)
+        } else {
+            return 0;
+        }
+    }
+
+    /**
+     * Toggles the panel depending on already trained and necessary trained personal
+     */
+    function togglePanel(element, numTrained, thresholdTrained) {
+        if (thresholdTrained && numTrained >= thresholdTrained) {
+            element.style.display = 'none';
+            // Dispatch scroll event um die Anzahl des ausgebildeten Personals für die neuen Elemente in der aktuellen Ansicht zu laden
+            element.dispatchEvent(new CustomEvent('scroll', {bubbles: true}));
+        } else {
+            element.style.removeProperty('display');
+        }
+    }
+
+    /**
+     * Gets the education key from either the global education key (schooling) or the radio buttons (building)
+     */
+    function getEducationKey() {
+        if (typeof globalEducationKey !== 'undefined') {
+            return globalEducationKey;
+        }
+
         const selectedRadio = document.querySelector('.radio input[type="radio"]:checked');
-        let educationKey;
+        let educationKey = null;
 
         if (selectedRadio) {
             educationKey = selectedRadio.getAttribute('education_key');
-        } else if (globalEducationKey) {
-            educationKey = globalEducationKey;
-        } else {
-            return false;
         }
 
-        const storedValue = localStorage.getItem(educationKey);
-        // Panel ausblenden, wenn NumTrained größer ist als gespeicherter Wert
-        return storedValue && numTrained >= parseInt(storedValue);
+        return educationKey;
     }
 
-    // Funktion zum Speichern der eingegebenen Zahl im Local Storage
+    /**
+     * Stores the value in the local storage or deletes the value if it's empty
+     */
     function saveToLocalStorage(educationKey, value) {
         if (value !== '') {
             localStorage.setItem(educationKey, value);
-        }
-        loadFromLocalStorage();
-    }
-
-    // Funktion zum Laden und Anzeigen der im Local Storage gespeicherten Zahlen
-    function loadFromLocalStorage() {
-        const inputFields = document.querySelectorAll('.educationInput');
-
-        for (let i = 0, n = inputFields.length; i < n; i++) {
-            const radioButton = inputFields[i].closest('.radio');
-            let educationKey;
-
-            if (radioButton) {
-                educationKey =  inputFields[i].closest('.radio').querySelector('input[type="radio"]').getAttribute('education_key');
-            } else if (globalEducationKey) {
-                educationKey = globalEducationKey;
-            } else {
-                return;
-            }
-
-            const storedValue = localStorage.getItem(educationKey);
-            if (storedValue) {
-                inputFields[i].value = storedValue;
-            }
-        }
-    }
-
-    // Funktion zum Löschen der im Local Storage gespeicherten Zahlen
-    function deleteFromLocalStorage(educationKey) {
-        localStorage.removeItem(educationKey);
-        loadFromLocalStorage();
-    }
-
-    // Funktion zum Setzen des StoredValue für einen bestimmten educationKey
-    function setStoredValueForEducationKey(educationKey) {
-        const inputField = document.querySelector('.educationInput[education_key="' + educationKey + '"]');
-        const storedValue = localStorage.getItem(educationKey);
-        if (inputField && storedValue) {
-            inputField.value = storedValue;
+        } else {
+            localStorage.removeItem(educationKey);
         }
     }
 
     // CSS-Stile für die Anordnung der Eingabefelder und Buttons
     const styles = `
-            label[for^="education_"],
-            .education-filter-container {
-                display: inline-block;
-            }
-            
+        label[for^="education_"],
+        .education-filter-container {
+            display: inline-block;
+        }
+        
+        label[for^="education_"] {
+            min-width: 450px;
+        }
+        
+        .education-filter-container button:first-of-type {
+            margin-right: 5px;
+            margin-left: 25px;
+        }
+        
+        .education-filter-container.education {
+            margin-bottom: 25px;
+        }
+        
+        @media (max-width: 812px) {
             label[for^="education_"] {
-                min-width: 450px;
+                padding-bottom: 7px;
             }
-            
-            .education-filter-container button:first-of-type {
-                margin-right: 5px;
-                margin-left: 25px;
-            }
-            
-            .education-filter-container.education {
-                margin-bottom: 25px;
-            }
-            
-            @media (max-width: 812px) {
-                label[for^="education_"] {
-                    padding-bottom: 7px;
-                }
-            }
-        `;
+        }
+    `;
 
     // CSS-Stile einfügen
     const styleElement = document.createElement('style');
