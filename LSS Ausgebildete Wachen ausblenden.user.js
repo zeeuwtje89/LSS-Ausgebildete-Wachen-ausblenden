@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LSS Ausgebildete Wachen ausblenden
 // @namespace    www.leitstellenspiel.de
-// @version      1.0
+// @version      1.1.0
 // @description  Blende Wachen in der Schule aus, die mehr ausgebildetes Personal haben, als angegeben
 // @author       MissSobol
 // @match        https://www.leitstellenspiel.de/buildings/*
