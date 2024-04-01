@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LSS Ausgebildete Wachen ausblenden
 // @namespace    www.leitstellenspiel.de
-// @version      1.0
+// @version      1.1.0
 // @description  Blende Wachen in der Schule aus, die mehr ausgebildetes Personal haben, als angegeben
 // @author       MissSobol
 // @match        https://www.leitstellenspiel.de/buildings/*
@@ -20,9 +20,17 @@
         return;
     }
 
-    const personalSelectHeadingElements = document.querySelectorAll('#accordion > .panel.panel-default .personal-select-heading-building');
-    const personalSelectHeadingCount = personalSelectHeadingElements.length;
+    const getPersonalSelectHeadingElements = () =>
+        document.querySelectorAll(
+            '#accordion > .panel.panel-default .personal-select-heading-building'
+        );
     observePanels();
+
+    // compatibility with Ausbildungs-Mausschoner
+    document.addEventListener(
+        'ausbildungs-mausschoner:buildings-appended',
+        observePanels
+    );
 
     if (schoolingElement) {
         // Einfügen eines Eingabefelds, Speichern-Buttons und Löschen-Buttons neben jedem Radio-Element
@@ -103,9 +111,7 @@
      * Observe all panels for education info changes
      */
     function observePanels() {
-        for (let i = 0, n = personalSelectHeadingCount; i < n; i++) {
-            observeEducationInfo(personalSelectHeadingElements[i]);
-        }
+        getPersonalSelectHeadingElements().forEach(observeEducationInfo);
     }
 
     /**
@@ -130,9 +136,9 @@
         const educationKey = getEducationKey();
         const thresholdTrained = getThresholdTrained(educationKey);
 
-        for (let i = 0, n = personalSelectHeadingCount; i < n; i++) {
-            checkPanel(personalSelectHeadingElements[i], thresholdTrained);
-        }
+        getPersonalSelectHeadingElements().forEach(element =>
+            checkPanel(element, thresholdTrained)
+        );
     }
 
     /**
