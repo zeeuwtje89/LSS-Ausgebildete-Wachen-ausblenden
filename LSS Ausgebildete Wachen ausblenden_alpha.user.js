@@ -1,11 +1,11 @@
 // ==UserScript==
-// @name         LSS Ausgebildete Wachen ausblenden
-// @namespace    www.leitstellenspiel.de
+// @name         mks opleidingen
+// @namespace    www.meldkamerspel.com
 // @version      1.4.0alpha
 // @description  Blende Wachen in der Schule aus, die mehr ausgebildetes Personal haben, als angegeben
-// @author       MissSobol
-// @match        https://www.leitstellenspiel.de/buildings/*
-// @match        https://www.leitstellenspiel.de/schoolings/*
+// @author       Descriptor
+// @match        https://www.meldkamerspel.com/buildings/*
+// @match        https://www.meldkamerspel.com/schoolings/*
 // @grant        none
 // ==/UserScript==
 
